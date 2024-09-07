@@ -1,110 +1,120 @@
+
 {
-  "name": "File-To-Link",
-  "description": "A Hydrogram-based Telegram bot for downloading and streaming Telegram files via the web.",
-  "keywords": [
-      "telegram",
-      "stream",
-      "web",
-      "hydrogram",
-      "aiohttp",
-      "python",
-      "plugin",
-      "modular",
-      "media",
-      "bot"
-  ],
-  "repository": "https://github.com/fyaz05/FileToLink",
-  "success_url": "/",
-  "logo": "https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/Thunder.jpg",
-  "env": {
-      "ENV": {
-          "description": "Set this to 'True' to prevent the bot from crashing.",
-          "value": "True"
-      },
-      "API_ID": {
-          "description": "Obtain this value from https://my.telegram.org.",
-          "value": "27859815"
-      },
-      "API_HASH": {
-          "description": "Obtain this value from https://my.telegram.org.",
-          "value": "3061e972cebdf6ce831171b3fce18786"
-      },
-      "BOT_TOKEN": {
-          "description": "Obtain this token from @BotFather.",
-          "value": "6522809218:AAGaO5a0bwW9wW-t2sDu5VjBi5TMPrUm0vg"
-      },
-      "BIN_CHANNEL": {
-          "description": "The BIN Channel ID. Refer to the README for more information.",
-          "value": "-1001811204481"
-      },
-      "DATABASE_URL": {
-          "description": "MongoDB URI for storing user IDs upon first interaction. Useful for broadcasting and upcoming database features. Search YouTube for tutorials if needed.",
-          "value": "mongodb+srv://neta:neta@cluster0.nkfhsa3.mongodb.net/?retryWrites=true&w=majority"
-      },
-      "OWNER_ID": {
-          "description": "Your Telegram User ID, e.g., 1234509.",
-          "value": "1820539117"
-      },
-      "OWNER_USERNAME": {
-          "description": "Your Telegram username, excluding the @ symbol, e.g., Thunder.",
-          "value": "@sentry05"
-      },
-      "NO_PORT": {
-          "description": "Set to 'True' if you prefer not to display the port. Refer to the README for more information.",
-          "value": "True",
-          "required": false
-      },
-      "HAS_SSL": {
-          "description": "Default value is 'True'.",
-          "value": "True",
-          "required": false
-      },
-      "FQDN": {
-          "description": "Refer to the README. Leave empty for Heroku.",
-          "value": "filetolink.tahirdea69.workers.dev",
-          "required": false
-      },
-      "name": {
-          "description": "Session name for the bot, e.g., Thunder.",
-          "value": "ThunderF2L",
-          "required": false
-      },
-      "MULTI_TOKEN1": {"value": "6553379883:AAH61Ml6-LWJuc_i6Qz3X2ViRNOYNnIelGk"},
-      "MULTI_TOKEN2": {"value": "7239701849:AAFn274R9tK9saX2MndLn_B4SgvVwUoKZWM"},
-      "MULTI_TOKEN3": {"value": "6923572846:AAE1wFrckNGEx9g6ZOS4gMEgVE7RJNjJodA"},
-      "MULTI_TOKEN4": {"value": "7192259587:AAFQ9NYu4Ydea4gj_NmpZt79MdilKIZKMSE"},
-      "MULTI_TOKEN5": {"value": "7132353466:AAHLL8GKBPXuOgKB7U98GygsIM0rwGGZfuA"},
-      "MULTI_TOKEN6": {"value": "7183348658:AAGYiDBuXw4o-qQF4gaM7Qm2gy9BkQmqDd8"},
-      "MULTI_TOKEN7": {"value": "6827793097:AAHD9S3s0QVap406YgXvusGWvHpM0YuOXS0"},
-      "MULTI_TOKEN8": {"value": "6434194475:AAF_ShhO2diPiuf__Jdb1UsBRC5m4ilkBWc"},
-      "MULTI_TOKEN9": {"value": "5644215415:AAEFEuwysmojquejX1DeFQhUzo3U-lQN5qE"},
-      "MULTI_TOKEN10": {"value": "6965396284:AAEZBGRReDlPg4Hc1yGcsAKkfA-1T8a6GvI"},
-      "MULTI_TOKEN11": {"value": "6745380747:AAFT8P9mmkNiiYJWCdMV82vCums7t3P17N8"},
-      "MULTI_TOKEN12": {"value": "6330690266:AAHNu6AwCL76WDnhSHIuteIvJGoynVO5fZQ"},
-      "MULTI_TOKEN13": {"value": "7276393751:AAE68DCevtfWPvEePp6PetpM_pMUfHvmjKA"},
-      "MULTI_TOKEN14": {"value": "6993786445:AAFZfuVzXPEYM0zWDj_S5bVPX7glVowp0c4"},
-      "MULTI_TOKEN15": {"value": "7276683893:AAEZ8YkdMRw_V60ZQ4Ifr8m0UEDiMIBEJDs"},
-      "MULTI_TOKEN16": {"value": "7462057271:AAFh8MRJmsnwQ9v1NBTVCj-VN6Ws0KjNPeU"},
-      "MULTI_TOKEN17": {"value": "7155392823:AAGLE5FvALhe0aub3vE8wfdJHRYqPY4nDUE"},
-      "MULTI_TOKEN18": {"value": "7263978981:AAFbs8vtsHygaVWx0_p9WjLRZj0NkgIsIKI"},
-      "MULTI_TOKEN19": {"value": "1777841084:AAF85EE11ddY5l1wmoKpiIx7LHMO5DsPlug"},
-      "MULTI_TOKEN20": {"value": "7254341294:AAGbmDah9NDLnmvJmTj_Nc0M8VxwoqwBrYM"},
-      "MULTI_TOKEN21": {"value": "7164220153:AAHMhlGYOHF5pXlsFozKkc71vRvFoH7AdRM"},
-      "MULTI_TOKEN22": {"value": "1890546901:AAE8h_Q_KmIBdVO40pUNJz7E-lHLwEz159o"},
-      "MULTI_TOKEN23": {"value": "7450234704:AAHAceRiRf9W84FzNyUV8f6P6x0ugSPk2WU"},
-      "MULTI_TOKEN24": {"value": "5138249248:AAHUmRS5kBp5HlT399dtVrukHnmrdx2kfoY"},
-      "MULTI_TOKEN25": {"value": "6641170886:AAHWgvktifMp2oEc-56oBgWrWqBjwbf1_98"},
-      "MULTI_TOKEN26": {"value": "6474194755:AAFjQXYLxegqRmGxsBp3PUksxOWm3EyQ6lM"}
-  },
-  "buildpacks": [
-      {
-          "url": "heroku/python"
-      }
-  ],
-  "formation": {
-      "web": {
-          "quantity": 1,
-          "size": "Standard-2X"
-      }
-  }
+    "name": "File-To-Link",
+    "description": "A Hydrogram-based Telegram bot for downloading and streaming Telegram files via the web.",
+    "keywords": [
+        "telegram",
+        "stream",
+        "web",
+        "hydrogram",
+        "aiohttp",
+        "python",
+        "plugin",
+        "modular",
+        "media",
+        "bot"
+    ],
+    "repository": "https://github.com/fyaz05/FileToLink",
+    "success_url": "/",
+    "logo": "https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/Thunder.jpg",
+    "env": {
+        "ENV": {
+            "description": "Set this to 'True' to prevent the bot from crashing.",
+            "value": "True"
+        },
+        "API_ID": {
+            "description": "Obtain this value from https://my.telegram.org.",
+            "value": "27859815"
+        },
+        "API_HASH": {
+            "description": "Obtain this value from https://my.telegram.org.",
+            "value": "3061e972cebdf6ce831171b3fce18786"
+        },
+        "BOT_TOKEN": {
+            "description": "Obtain this token from @BotFather.",
+            "value": "6856017922:AAGf0U6uKMrlXTtqGk3JsZtqPeik2EHuErc"
+        },
+        "BIN_CHANNEL": {
+            "description": "The BIN Channel ID. Refer to the README for more information.",
+            "value": "-1001811204481"
+        },
+        "DATABASE_URL": {
+            "description": "MongoDB URI for storing user IDs upon first interaction. Useful for broadcasting and upcoming database features. Search YouTube for tutorials if needed.",
+            "value": "mongodb+srv://neta:neta@cluster0.nkfhsa3.mongodb.net/?retryWrites=true&w=majority"
+        },
+        "OWNER_ID": {
+            "description": "Your Telegram User ID, e.g., 1234509.",
+            "value": "1820539117"
+        },
+        "OWNER_USERNAME": {
+            "description": "Your Telegram username, excluding the @ symbol, e.g., Thunder.",
+            "value": "@sentry05"
+        },
+        "UPDATES_CHANNEL": {
+            "description": "The channel where updates will be posted.",
+            "value": "TeamShoGuN"
+        },
+        "PORT": {
+            "description": "Port for your web app. Refer to the README for more information.",
+            "value": "80"
+        },
+        "NO_PORT": {
+            "description": "Set to 'True' if you prefer not to display the port. Refer to the README for more information.",
+            "value": "True",
+            "required": false
+        },
+        "HAS_SSL": {
+            "description": "Default value is 'True'.",
+            "value": "True",
+            "required": false
+        },
+        "FQDN": {
+            "description": "Refer to the README. Leave empty for Heroku.",
+            "value": "filetolink.tahirdea69.workers.dev",
+            "required": false
+        },
+        "name": {
+            "description": "Session name for the bot, e.g., Thunder.",
+            "value": "ThunderF2L",
+            "required": false
+        },
+        "MULTI_TOKEN1": {"value": "6553379883:AAH61Ml6-LWJuc_i6Qz3X2ViRNOYNnIelGk"},
+        "MULTI_TOKEN2": {"value": "7239701849:AAFn274R9tK9saX2MndLn_B4SgvVwUoKZWM"},
+        "MULTI_TOKEN3": {"value": "6923572846:AAE1wFrckNGEx9g6ZOS4gMEgVE7RJNjJodA"},
+        "MULTI_TOKEN4": {"value": "7192259587:AAFQ9NYu4Ydea4gj_NmpZt79MdilKIZKMSE"},
+        "MULTI_TOKEN5": {"value": "7132353466:AAHLL8GKBPXuOgKB7U98GygsIM0rwGGZfuA"},
+        "MULTI_TOKEN6": {"value": "7183348658:AAGYiDBuXw4o-qQF4gaM7Qm2gy9BkQmqDd8"},
+        "MULTI_TOKEN7": {"value": "6827793097:AAHD9S3s0QVap406YgXvusGWvHpM0YuOXS0"},
+        "MULTI_TOKEN8": {"value": "6434194475:AAF_ShhO2diPiuf__Jdb1UsBRC5m4ilkBWc"},
+        "MULTI_TOKEN9": {"value": "5644215415:AAEFEuwysmojquejX1DeFQhUzo3U-lQN5qE"},
+        "MULTI_TOKEN10": {"value": "6965396284:AAEZBGRReDlPg4Hc1yGcsAKkfA-1T8a6GvI"},
+        "MULTI_TOKEN11": {"value": "6745380747:AAFT8P9mmkNiiYJWCdMV82vCums7t3P17N8"},
+        "MULTI_TOKEN12": {"value": "6330690266:AAHNu6AwCL76WDnhSHIuteIvJGoynVO5fZQ"},
+        "MULTI_TOKEN13": {"value": "7276393751:AAE68DCevtfWPvEePp6PetpM_pMUfHvmjKA"},
+        "MULTI_TOKEN14": {"value": "6993786445:AAFZfuVzXPEYM0zWDj_S5bVPX7glVowp0c4"},
+        "MULTI_TOKEN15": {"value": "7276683893:AAEZ8YkdMRw_V60ZQ4Ifr8m0UEDiMIBEJDs"},
+        "MULTI_TOKEN16": {"value": "7462057271:AAFh8MRJmsnwQ9v1NBTVCj-VN6Ws0KjNPeU"},
+        "MULTI_TOKEN17": {"value": "7155392823:AAGLE5FvALhe0aub3vE8wfdJHRYqPY4nDUE"},
+        "MULTI_TOKEN18": {"value": "7263978981:AAFbs8vtsHygaVWx0_p9WjLRZj0NkgIsIKI"},
+        "MULTI_TOKEN19": {"value": "1777841084:AAF85EE11ddY5l1wmoKpiIx7LHMO5DsPlug"},
+        "MULTI_TOKEN20": {"value": "7254341294:AAGbmDah9NDLnmvJmTj_Nc0M8VxwoqwBrYM"},
+        "MULTI_TOKEN21": {"value": "7164220153:AAHMhlGYOHF5pXlsFozKkc71vRvFoH7AdRM"},
+        "MULTI_TOKEN22": {"value": "1890546901:AAE8h_Q_KmIBdVO40pUNJz7E-lHLwEz159o"},
+        "MULTI_TOKEN23": {"value": "7450234704:AAHAceRiRf9W84FzNyUV8f6P6x0ugSPk2WU"},
+        "MULTI_TOKEN24": {"value": "5138249248:AAHUmRS5kBp5HlT399dtVrukHnmrdx2kfoY"},
+        "MULTI_TOKEN25": {"value": "6641170886:AAHWgvktifMp2oEc-56oBgWrWqBjwbf1_98"},
+        "MULTI_TOKEN26": {"value": "6474194755:AAFjQXYLxegqRmGxsBp3PUksxOWm3EyQ6lM"}
+    },
+    "buildpacks": [
+        {
+            "url": "heroku/python"
+        }
+    ],
+    "formation": {
+        "web": {
+            "quantity": 1,
+            "size": "Standard-2X"
+        }
+    }
 }
+
