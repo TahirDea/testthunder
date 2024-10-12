@@ -15,8 +15,8 @@ from cachetools import LRUCache, TTLCache
 
 from Thunder.bot import multi_clients, work_loads, StreamBot
 from Thunder import StartTime, __version__
-from Thunder.utils.time_format import get_readable_time
-from Thunder.utils.custom_dl import ByteStreamer
+from ..utils.time_format import get_readable_time
+from ..utils.custom_dl import ByteStreamer
 from Thunder.utils.render_template import render_page
 from Thunder.vars import Var
 from Thunder.server.exceptions import FileNotFound, InvalidHash
