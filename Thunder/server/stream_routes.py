@@ -108,7 +108,7 @@ async def root_route_handler(_):
     status_cache['status'] = response
     return response
 
-@routes.get(r"/watch/{path:[a-zA-Z0-9_-]+}", allow_head=True)
+@routes.get(r"/watch/{path:\S+}", allow_head=True)
 @exception_handler
 async def stream_handler_watch(request: web.Request):
     """
@@ -125,7 +125,7 @@ async def stream_handler_watch(request: web.Request):
     page_content = await render_page(message_id, secure_hash)
     return web.Response(text=page_content, content_type='text/html')
 
-@routes.get(r"/stream/{path:[a-zA-Z0-9_-]{6}\d+}", allow_head=True)
+@routes.get(r"/stream/{path:\S+}", allow_head=True)
 @exception_handler
 async def stream_handler(request: web.Request):
     """
