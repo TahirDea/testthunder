@@ -108,7 +108,7 @@ async def root_route_handler(_):
     status_cache['status'] = response
     return response
 
-@routes.get(r"/watch/{path:\S+}", allow_head=True)
+@routes.get(r"/watch/{path}", allow_head=True)
 @exception_handler
 async def stream_handler_watch(request: web.Request):
     """
@@ -125,11 +125,11 @@ async def stream_handler_watch(request: web.Request):
     page_content = await render_page(message_id, secure_hash)
     return web.Response(text=page_content, content_type='text/html')
 
-@routes.get(r"/stream/{path:\S+}", allow_head=True)
+@routes.get(r"/{path}", allow_head=True)
 @exception_handler
 async def stream_handler(request: web.Request):
     """
-    Handles the '/stream/{path}' endpoint to stream media content.
+    Handles the '/{path}' endpoint to stream media content.
 
     Args:
         request (web.Request): The incoming web request.
