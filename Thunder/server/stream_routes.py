@@ -5,7 +5,6 @@ import logging
 import secrets
 import mimetypes
 import asyncio
-from urllib.parse import quote
 from functools import wraps
 from typing import Tuple
 
@@ -68,6 +67,7 @@ def parse_path(request: web.Request, path_param: str) -> Tuple[int, str]:
         web.HTTPBadRequest: If the path parameter is invalid.
     """
     logging.debug(f"Parsing path: {path_param}")
+    
     match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path_param)
     if match:
         secure_hash = match.group(1)
@@ -173,10 +173,8 @@ async def media_streamer(request: web.Request, message_id: int, secure_hash: str
     # Thread-safe access to the class cache
     async with class_cache_lock:
         tg_connect = class_cache.get(faster_client)
-        if tg_connect and not tg_connect.is_valid():
-            logging.warning(f"Cached ByteStreamer for client {index} is invalid. Recreating.")
-            tg_connect = None  # Discard invalid ByteStreamer
-            class_cache.pop(faster_client, None)
+    
+    # If no cached ByteStreamer instance is found, create a new one
     if not tg_connect:
         try:
             tg_connect = ByteStreamer(faster_client)
@@ -247,7 +245,7 @@ async def media_streamer(request: web.Request, message_id: int, secure_hash: str
 
     # Set the appropriate headers and status code
     headers = {
-        "Content-Type": mime_type,  # Removed `quote` to avoid escaping MIME type
+        "Content-Type": mime_type,
         "Content-Range": f"bytes {from_bytes}-{until_bytes}/{file_size}",
         "Content-Length": str(req_length),
         "Content-Disposition": f'attachment; filename="{file_name}"',
