@@ -23,7 +23,7 @@ from Thunder.server.exceptions import FileNotFound, InvalidHash
 
 routes = web.RouteTableDef()
 
-@routes.get("/", allow_head=True)
+@routes.get("/status", allow_head=True)
 async def root_route_handler(_):
     return web.json_response(
         {
@@ -57,7 +57,7 @@ async def stream_handler(request: web.Request):
         return web.Response(text=await render_page(id, secure_hash), content_type='text/html')
     except InvalidHash as e:
         raise web.HTTPForbidden(text=e.message)
-    except FIleNotFound as e:
+    except FileNotFound as e:
         raise web.HTTPNotFound(text=e.message)
     except (AttributeError, BadStatusLine, ConnectionResetError):
         pass
@@ -79,7 +79,7 @@ async def stream_handler(request: web.Request):
         return await media_streamer(request, id, secure_hash)
     except InvalidHash as e:
         raise web.HTTPForbidden(text=e.message)
-    except FIleNotFound as e:
+    except FileNotFound as e:
         raise web.HTTPNotFound(text=e.message)
     except (AttributeError, BadStatusLine, ConnectionResetError):
         pass
