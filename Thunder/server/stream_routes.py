@@ -25,6 +25,8 @@ from Thunder.utils.render_template import render_page
 from Thunder.vars import Var
 from Thunder.server.exceptions import FileNotFound, InvalidHash
 
+import inspect  # Added for type checking
+
 # Precompile regex patterns for efficiency
 PATH_PATTERN_WITH_HASH = re.compile(r"^([a-zA-Z0-9_-]{6})(\d+)$")
 PATH_PATTERN_WITH_ID = re.compile(r"(\d+)(?:/\S+)?")
@@ -64,7 +66,8 @@ def exception_handler(func):
             asyncio.CancelledError,
         ):
             logging.error("Client disconnected unexpectedly.")
-            raise web.HTTPClientError(text="Client disconnected unexpectedly.")
+            # It's better not to raise an exception here; just return.
+            return web.Response(status=499, text="Client Closed Request")
         except Exception as e:
             logging.exception("Unhandled exception occurred.")
             raise web.HTTPInternalServerError(text="An unexpected error occurred.")
@@ -188,7 +191,7 @@ async def media_streamer(
             logging.error(f"Failed to create ByteStreamer for client {index}: {e}")
             raise web.HTTPInternalServerError(text="Failed to initialize media stream.")
 
-    # Retrieve file properties (ensure it's non-blocking)
+    # Retrieve file properties
     file_id = await tg_connect.get_file_properties(message_id)
     logging.debug(f"Retrieved file properties for message ID {message_id}: {file_id}")
 
@@ -248,18 +251,6 @@ async def media_streamer(
         f"last_part_cut: {last_part_cut}, part_count: {part_count}, chunk_size: {chunk_size}"
     )
 
-    # Get the file stream generator (ensure it's non-blocking)
-    body = tg_connect.yield_file(
-        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
-    )
-
-    # If yield_file is blocking, run it in a separate thread
-    if not asyncio.iscoroutinefunction(tg_connect.yield_file):
-        body = asyncio.to_thread(
-            sync_stream_wrapper,
-            body
-        )
-
     # Determine MIME type and file name
     mime_type = file_id.mime_type or "application/octet-stream"
     file_name = (
@@ -277,6 +268,22 @@ async def media_streamer(
     }
     status = 206 if range_header else 200
 
+    # Get the file stream generator and wrap it properly
+    body = tg_connect.yield_file(
+        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
+    )
+
+    if inspect.isasyncgen(body):
+        # It's an async generator, use it directly
+        pass
+    elif inspect.isgenerator(body):
+        # It's a sync generator, wrap it
+        body = async_generator_from_sync(body)
+    else:
+        # If it's neither, raise an error
+        logging.error("tg_connect.yield_file must return a generator.")
+        raise TypeError("tg_connect.yield_file must return a generator.")
+
     # Return the streaming response
     return web.Response(
         status=status,
@@ -284,9 +291,15 @@ async def media_streamer(
         headers=headers,
     )
 
-def sync_stream_wrapper(generator):
+async def async_generator_from_sync(sync_gen):
     """
     Wraps a synchronous generator to make it asynchronous.
     """
-    for chunk in generator:
-        yield chunk
+    loop = asyncio.get_running_loop()
+    iterator = iter(sync_gen)
+    while True:
+        try:
+            chunk = await loop.run_in_executor(None, next, iterator)
+            yield chunk
+        except StopIteration:
+            break
