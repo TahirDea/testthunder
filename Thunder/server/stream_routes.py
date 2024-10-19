@@ -9,6 +9,7 @@ from functools import wraps
 from typing import Tuple, Any
 
 from aiohttp import web
+from aiohttp.web_exceptions import HTTPNotFound
 from aiohttp.http_exceptions import BadStatusLine
 from aiohttp.client_exceptions import (
     ClientConnectionError,
@@ -203,6 +204,37 @@ async def stream_handler(request: web.Request):
     
     # Delegate to the media_streamer function to handle streaming
     return await media_streamer(request, message_id, secure_hash)
+
+# Custom 404 error handler
+@web.middleware
+async def custom_404_handler(request, handler):
+    """
+    Middleware to handle 404 errors with a custom message.
+
+    Args:
+        request (web.Request): The incoming web request.
+        handler (callable): The next request handler.
+
+    Returns:
+        web.Response: The HTTP response with a custom 404 message.
+    """
+    try:
+        response = await handler(request)
+        if response.status == 404:
+            # Return custom 404 page
+            return web.Response(
+                text="<h1>Invalid link. Please check your URL.</h1>",
+                content_type='text/html',
+                status=404
+            )
+        return response
+    except HTTPNotFound:
+        logging.warning(f"404 Not Found: {request.rel_url}")
+        return web.Response(
+            text="<h1>Invalid link. Please check your URL.</h1>",
+            content_type='text/html',
+            status=404
+        )
 
 async def media_streamer(
     request: web.Request, message_id: int, secure_hash: str
