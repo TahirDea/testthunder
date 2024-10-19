@@ -248,12 +248,12 @@ async def media_streamer(
     try:
         file_id = await tg_connect.get_file_properties(message_id)
         logging.debug(f"Retrieved file properties for message ID {message_id}: {file_id}")
-    except AuthBytesInvalid as e:
-        logging.error(f"Authorization bytes invalid for message ID {message_id}: {e}")
-        raise web.HTTPInternalServerError(text="Authorization error. Please try again later.")
+    except InvalidHash:
+        logging.error(f"Invalid secure hash for message with ID {message_id}")
+        raise
     except FileNotFound as e:
         logging.error(f"File not found for message ID {message_id}: {e}")
-        raise web.HTTPNotFound(text="Requested file not found.")
+        raise
     except Exception as e:
         logging.error(f"Error retrieving file properties for message ID {message_id}: {e}")
         raise web.HTTPInternalServerError(text="Failed to retrieve file properties.")
