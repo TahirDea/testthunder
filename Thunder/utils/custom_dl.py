@@ -109,7 +109,7 @@ class ByteStreamer:
         Returns:
             Session: The media session object.
         """
-        client_dc_id = self.client.storage.dc_id
+        client_dc_id = await self.client.storage.dc_id()
 
         if file_id.dc_id != client_dc_id:
             session = await self._create_media_session(file_id)
@@ -119,8 +119,8 @@ class ByteStreamer:
             session = Session(
                 self.client,
                 file_id.dc_id,
-                self.client.storage.auth_key,
-                self.client.storage.test_mode,
+                await self.client.storage.auth_key(),
+                await self.client.storage.test_mode(),
                 is_media=True,
             )
             await session.start()
@@ -137,13 +137,14 @@ class ByteStreamer:
         Returns:
             Session: The new media session object.
         """
-        auth = Auth(self.client, file_id.dc_id, self.client.storage.test_mode)
+        test_mode = await self.client.storage.test_mode()
+        auth = Auth(self.client, file_id.dc_id, test_mode)
         auth_key = await auth.create()
         session = Session(
             self.client,
             file_id.dc_id,
             auth_key,
-            self.client.storage.test_mode,
+            test_mode,
             is_media=True,
         )
         await session.start()
