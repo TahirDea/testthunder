@@ -80,7 +80,7 @@ class ByteStreamer:
         """
         file_id = await get_file_ids(self.client, Var.BIN_CHANNEL, message_id)
         if not file_id:
-            LOGGER.error(f"Message with ID {message_id} not found")
+            LOGGER.warning(f"Message with ID {message_id} not found")
             raise FileNotFound(f"File with message ID {message_id} not found.")
         LOGGER.debug(f"Generated file ID for message with ID {message_id}")
         async with self.cache_lock:
@@ -258,7 +258,7 @@ class ByteStreamer:
                         )
                     )
                     if not isinstance(response, raw.types.upload.File):
-                        LOGGER.error("Unexpected response type while fetching file.")
+                        LOGGER.warning("Unexpected response type while fetching file.")
                         break
 
                     chunk = response.bytes
@@ -285,7 +285,7 @@ class ByteStreamer:
                     LOGGER.warning(f"FloodWait: Sleeping for {e.value} seconds.")
                     await asyncio.sleep(e.value + 1)
                 except (RPCError, TimeoutError) as e:
-                    LOGGER.error(f"Error while fetching file part: {e}")
+                    LOGGER.warning(f"Error while fetching file part: {e}")
                     raise
         finally:
             LOGGER.debug(f"Finished yielding file, processed {current_part - 1} parts.")
