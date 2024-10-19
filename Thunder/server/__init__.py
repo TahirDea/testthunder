@@ -20,7 +20,7 @@ async def custom_404_handler(request, handler):
     try:
         response = await handler(request)
         if response.status == 404:
-            # Return custom 404 page
+            # Return custom 404 page without logging it as an error
             return web.Response(
                 text="<h1>Invalid link. Please check your URL.</h1>",
                 content_type='text/html',
@@ -28,8 +28,7 @@ async def custom_404_handler(request, handler):
             )
         return response
     except HTTPNotFound:
-        # Handle HTTPNotFound exceptions explicitly
-        logging.info(f"HTTPNotFound: {request.rel_url}")
+        # Handle HTTPNotFound exceptions explicitly without logging them as errors
         return web.Response(
             text="<h1>Invalid link. Please check your URL.</h1>",
             content_type='text/html',

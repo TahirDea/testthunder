@@ -110,13 +110,11 @@ def parse_path(request: web.Request, path_param: str) -> Tuple[int, str]:
             message_id = int(id_match.group(1))
             secure_hash = request.rel_url.query.get("hash")
             if not secure_hash:
-                logging.error("Secure hash is required but not provided.")
-                # Return 404 with a custom message
+                # Secure hash is missing; raise 404 without logging an error
                 raise web.HTTPNotFound(text="Invalid link. Secure hash is missing.")
             logging.debug(f"Extracted message_id: {message_id}, secure_hash from query: {secure_hash}")
         else:
-            # Log the error and return a 404 error with a custom message
-            logging.error(f"Invalid path parameter: {path_param}")
+            # Path parameter is invalid; raise 404 without logging an error
             raise web.HTTPNotFound(text="Invalid link. Please check your URL.")
 
     return message_id, secure_hash
@@ -253,19 +251,19 @@ async def media_streamer(
         file_id = await tg_connect.get_file_properties(message_id)
         logging.debug(f"Retrieved file properties for message ID {message_id}: {file_id}")
     except InvalidHash:
-        logging.error(f"Invalid secure hash for message with ID {message_id}")
-        raise
+        logging.warning(f"Invalid secure hash for message with ID {message_id}")
+        raise web.HTTPForbidden(text="Invalid secure hash.")
     except FileNotFound as e:
-        logging.error(f"File not found for message ID {message_id}: {e}")
-        raise
+        logging.warning(f"File not found for message ID {message_id}: {e}")
+        raise web.HTTPNotFound(text="Requested file not found.")
     except Exception as e:
         logging.error(f"Error retrieving file properties for message ID {message_id}: {e}")
         raise web.HTTPInternalServerError(text="Failed to retrieve file properties.")
 
     # Validate the secure hash
     if file_id.unique_id[:6] != secure_hash:
-        logging.error(f"Invalid secure hash for message with ID {message_id}")
-        raise InvalidHash
+        logging.warning(f"Invalid secure hash for message with ID {message_id}")
+        raise web.HTTPForbidden(text="Invalid secure hash.")
 
     file_size = file_id.file_size
     logging.debug(f"File size: {file_size}")
@@ -280,7 +278,7 @@ async def media_streamer(
             )
             logging.debug(f"Handling range from {from_bytes} to {until_bytes}")
         else:
-            logging.error(f"Invalid Range header format: {range_header}")
+            logging.warning(f"Invalid Range header format: {range_header}")
             raise web.HTTPBadRequest(text="Invalid Range header.")
     else:
         from_bytes = 0
@@ -293,7 +291,7 @@ async def media_streamer(
         or from_bytes < 0
         or until_bytes < from_bytes
     ):
-        logging.error(
+        logging.warning(
             f"Requested Range Not Satisfiable: from_bytes={from_bytes}, until_bytes={until_bytes}, file_size={file_size}"
         )
         return web.Response(
