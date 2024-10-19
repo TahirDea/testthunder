@@ -4,13 +4,16 @@ from typing import Dict, Union
 
 from pyrogram import Client, raw
 from pyrogram.session import Session, Auth
-from pyrogram.errors import AuthBytesInvalid, RPCError, FloodWait, TimeoutError
+from pyrogram.errors import AuthBytesInvalid, RPCError, FloodWait
 from pyrogram.file_id import FileId, FileType, ThumbnailSource
 
 from Thunder.vars import Var
 from Thunder.bot import work_loads
 from Thunder.server.exceptions import FileNotFound
 from .file_properties import get_file_ids
+
+# Import asyncio.TimeoutError instead of pyrogram.errors.TimeoutError
+from asyncio import TimeoutError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -182,7 +185,7 @@ class ByteStreamer:
                     raise
 
             except FloodWait as e:
-                LOGGER.warning(f"FloodWait error during auth attempt: {e}")
+                LOGGER.error(f"FloodWait error during auth attempt: {e}")
                 await asyncio.sleep(e.value + 1)
 
             except RPCError as e:
