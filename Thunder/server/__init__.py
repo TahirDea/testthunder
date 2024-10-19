@@ -1,7 +1,40 @@
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
-from .stream_routes import routes, custom_404_handler
+from .stream_routes import routes
 
+import logging
+
+# Define the custom 404 error handler middleware
+@web.middleware
+async def custom_404_handler(request, handler):
+    """
+    Middleware to handle 404 errors with a custom message.
+
+    Args:
+        request (web.Request): The incoming web request.
+        handler (callable): The next request handler.
+
+    Returns:
+        web.Response: The HTTP response with a custom 404 message.
+    """
+    try:
+        response = await handler(request)
+        if response.status == 404:
+            # Return custom 404 page
+            return web.Response(
+                text="<h1>Invalid link. Please check your URL.</h1>",
+                content_type='text/html',
+                status=404
+            )
+        return response
+    except HTTPNotFound:
+        # Handle HTTPNotFound exceptions explicitly
+        logging.info(f"HTTPNotFound: {request.rel_url}")
+        return web.Response(
+            text="<h1>Invalid link. Please check your URL.</h1>",
+            content_type='text/html',
+            status=404
+        )
 
 async def web_server():
     """

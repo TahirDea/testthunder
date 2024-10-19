@@ -45,6 +45,7 @@ def exception_handler(func):
     Decorator to handle exceptions consistently across route handlers.
 
     Catches specific exceptions and raises appropriate HTTP errors.
+    Avoids logging for standard HTTP exceptions like HTTPNotFound.
     """
     @wraps(func)
     async def wrapper(request):
@@ -72,6 +73,9 @@ def exception_handler(func):
             logging.error("Client disconnected unexpectedly.")
             # 499 is a non-standard status code used by some servers to indicate client closed request
             return web.Response(status=499, text="Client Closed Request")
+        except web.HTTPException:
+            # Do not log standard HTTP exceptions like HTTPNotFound
+            raise
         except Exception as e:
             logging.exception("Unhandled exception occurred.")
             raise web.HTTPInternalServerError(text="An unexpected error occurred.")
@@ -89,7 +93,7 @@ def parse_path(request: web.Request, path_param: str) -> Tuple[int, str]:
         tuple: A tuple containing the message ID (int) and secure hash (str).
 
     Raises:
-        web.HTTPBadRequest: If the path parameter is invalid or secure hash is missing.
+        web.HTTPNotFound: If the path parameter is invalid or does not match the expected format.
     """
     logging.debug(f"Parsing path: {path_param}")
 
@@ -98,9 +102,7 @@ def parse_path(request: web.Request, path_param: str) -> Tuple[int, str]:
     if match:
         secure_hash = match.group(1)
         message_id = int(match.group(2))
-        logging.debug(
-            f"Extracted secure_hash: {secure_hash}, message_id: {message_id}"
-        )
+        logging.debug(f"Extracted secure_hash: {secure_hash}, message_id: {message_id}")
     else:
         # Fallback: extract message_id and get secure_hash from query parameters
         id_match = PATH_PATTERN_WITH_ID.match(path_param)
@@ -109,13 +111,14 @@ def parse_path(request: web.Request, path_param: str) -> Tuple[int, str]:
             secure_hash = request.rel_url.query.get("hash")
             if not secure_hash:
                 logging.error("Secure hash is required but not provided.")
-                raise web.HTTPBadRequest(text="Secure hash is required.")
-            logging.debug(
-                f"Extracted message_id: {message_id}, secure_hash from query: {secure_hash}"
-            )
+                # Return 404 with a custom message
+                raise web.HTTPNotFound(text="Invalid link. Secure hash is missing.")
+            logging.debug(f"Extracted message_id: {message_id}, secure_hash from query: {secure_hash}")
         else:
+            # Log the error and return a 404 error with a custom message
             logging.error(f"Invalid path parameter: {path_param}")
-            raise web.HTTPBadRequest(text="Invalid path parameter.")
+            raise web.HTTPNotFound(text="Invalid link. Please check your URL.")
+
     return message_id, secure_hash
 
 def select_client() -> Tuple[int, Any]:
@@ -204,37 +207,6 @@ async def stream_handler(request: web.Request):
     
     # Delegate to the media_streamer function to handle streaming
     return await media_streamer(request, message_id, secure_hash)
-
-# Custom 404 error handler
-@web.middleware
-async def custom_404_handler(request, handler):
-    """
-    Middleware to handle 404 errors with a custom message.
-
-    Args:
-        request (web.Request): The incoming web request.
-        handler (callable): The next request handler.
-
-    Returns:
-        web.Response: The HTTP response with a custom 404 message.
-    """
-    try:
-        response = await handler(request)
-        if response.status == 404:
-            # Return custom 404 page
-            return web.Response(
-                text="<h1>Invalid link. Please check your URL.</h1>",
-                content_type='text/html',
-                status=404
-            )
-        return response
-    except HTTPNotFound:
-        logging.warning(f"404 Not Found: {request.rel_url}")
-        return web.Response(
-            text="<h1>Invalid link. Please check your URL.</h1>",
-            content_type='text/html',
-            status=404
-        )
 
 async def media_streamer(
     request: web.Request, message_id: int, secure_hash: str
