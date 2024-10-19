@@ -1,5 +1,6 @@
 from aiohttp import web
-from .stream_routes import routes
+from aiohttp.web_exceptions import HTTPNotFound
+from .stream_routes import routes, custom_404_handler
 
 
 async def web_server():
