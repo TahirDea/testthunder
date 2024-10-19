@@ -1,8 +1,9 @@
+import math
 import asyncio
 import logging
 from typing import Dict, Union
 
-from pyrogram import Client, raw
+from pyrogram import Client, utils, raw
 from pyrogram.session import Session, Auth
 from pyrogram.errors import AuthBytesInvalid, RPCError, FloodWait
 from pyrogram.file_id import FileId, FileType, ThumbnailSource
@@ -12,7 +13,7 @@ from Thunder.bot import work_loads
 from Thunder.server.exceptions import FileNotFound
 from .file_properties import get_file_ids
 
-# Import asyncio.TimeoutError instead of pyrogram.errors.TimeoutError
+# Import asyncio.TimeoutError
 from asyncio import TimeoutError
 
 LOGGER = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 class ByteStreamer:
     """
-    A class to handle streaming of files from Telegram servers.
+    A custom class that handles streaming of media files from Telegram servers.
 
     Attributes:
         client (Client): The Pyrogram client instance.
@@ -61,11 +62,12 @@ class ByteStreamer:
             file_id = await self.generate_file_properties(message_id)
             async with self.cache_lock:
                 self.cached_file_ids[message_id] = file_id
+            LOGGER.debug(f"Cached file properties for message with ID {message_id}")
         return file_id
 
     async def generate_file_properties(self, message_id: int) -> FileId:
         """
-        Fetch and generate file properties for a given message ID.
+        Generate file properties for a given message ID.
 
         Args:
             message_id (int): The message ID of the file.
@@ -74,128 +76,95 @@ class ByteStreamer:
             FileId: The file properties object.
 
         Raises:
-            FileNotFound: If the file is not found in the channel.
+            FileNotFound: If the file is not found.
         """
         file_id = await get_file_ids(self.client, Var.BIN_CHANNEL, message_id)
         if not file_id:
-            LOGGER.warning(f"File with message ID {message_id} not found.")
+            LOGGER.error(f"Message with ID {message_id} not found")
             raise FileNotFound(f"File with message ID {message_id} not found.")
-        LOGGER.debug(f"Generated and cached file properties for message ID {message_id}.")
+        LOGGER.debug(f"Generated file ID for message with ID {message_id}")
+        async with self.cache_lock:
+            self.cached_file_ids[message_id] = file_id
         return file_id
 
     async def generate_media_session(self, file_id: FileId) -> Session:
         """
-        Create or reuse a media session based on the file's data center ID.
+        Generate the media session for the DC that contains the media file.
 
         Args:
             file_id (FileId): The file properties object.
 
         Returns:
             Session: The media session object.
-        """
-        media_session = self.client.media_sessions.get(file_id.dc_id)
-        if media_session is None:
-            media_session = await self._create_or_reuse_media_session(file_id)
-            self.client.media_sessions[file_id.dc_id] = media_session
-        return media_session
-
-    async def _create_or_reuse_media_session(self, file_id: FileId) -> Session:
-        """
-        Create a new media session or reuse an existing one.
-
-        Args:
-            file_id (FileId): The file properties object.
-
-        Returns:
-            Session: The media session object.
-        """
-        client_dc_id = await self.client.storage.dc_id()
-
-        if file_id.dc_id != client_dc_id:
-            session = await self._create_media_session(file_id)
-            await self._authenticate_session(file_id, session)
-        else:
-            # Reuse existing session if in the same DC
-            session = Session(
-                self.client,
-                file_id.dc_id,
-                await self.client.storage.auth_key(),
-                await self.client.storage.test_mode(),
-                is_media=True,
-            )
-            await session.start()
-
-        return session
-
-    async def _create_media_session(self, file_id: FileId) -> Session:
-        """
-        Creates a new media session for a given file.
-
-        Args:
-            file_id (FileId): The file properties object.
-
-        Returns:
-            Session: The new media session object.
-        """
-        test_mode = await self.client.storage.test_mode()
-        auth = Auth(self.client, file_id.dc_id, test_mode)
-        auth_key = await auth.create()
-        session = Session(
-            self.client,
-            file_id.dc_id,
-            auth_key,
-            test_mode,
-            is_media=True,
-        )
-        await session.start()
-        LOGGER.debug(f"Created new media session for DC {file_id.dc_id}.")
-        return session
-
-    async def _authenticate_session(self, file_id: FileId, session: Session) -> None:
-        """
-        Authenticate a session, retrying up to three times if necessary.
-
-        Args:
-            file_id (FileId): The file properties object.
-            session (Session): The media session object.
 
         Raises:
             AuthBytesInvalid: If authentication fails after retries.
         """
-        for attempt in range(3):
-            try:
-                exported_auth = await self.client.invoke(
-                    raw.functions.auth.ExportAuthorization(dc_id=file_id.dc_id)
+        client = self.client
+        media_session = client.media_sessions.get(file_id.dc_id)
+
+        if media_session is None:
+            client_dc_id = await client.storage.dc_id()
+            test_mode = await client.storage.test_mode()
+
+            if file_id.dc_id != client_dc_id:
+                auth = Auth(client, file_id.dc_id, test_mode)
+                auth_key = await auth.create()
+                media_session = Session(
+                    client,
+                    file_id.dc_id,
+                    auth_key,
+                    test_mode,
+                    is_media=True,
                 )
-                LOGGER.debug(f"Attempt {attempt + 1}: Exported auth for DC {file_id.dc_id}")
+                await media_session.start()
+                LOGGER.debug(f"Created new media session for DC {file_id.dc_id}")
 
-                await asyncio.sleep(1)  # Delay for transient issue management
-                await session.send(
-                    raw.functions.auth.ImportAuthorization(
-                        id=exported_auth.id, bytes=exported_auth.bytes
-                    )
+                for attempt in range(6):
+                    try:
+                        exported_auth = await client.invoke(
+                            raw.functions.auth.ExportAuthorization(dc_id=file_id.dc_id)
+                        )
+                        await media_session.send(
+                            raw.functions.auth.ImportAuthorization(
+                                id=exported_auth.id, bytes=exported_auth.bytes
+                            )
+                        )
+                        LOGGER.info(f"Authorization imported successfully for DC {file_id.dc_id}")
+                        break
+                    except AuthBytesInvalid:
+                        LOGGER.warning(
+                            f"Attempt {attempt + 1}: Invalid auth bytes for DC {file_id.dc_id}"
+                        )
+                        if attempt == 5:
+                            await media_session.stop()
+                            raise
+                        await asyncio.sleep(1)
+                    except FloodWait as e:
+                        LOGGER.warning(f"FloodWait: Sleeping for {e.value} seconds.")
+                        await asyncio.sleep(e.value + 1)
+                    except RPCError as e:
+                        LOGGER.error(f"RPCError during auth attempt: {e}")
+                        await asyncio.sleep(1)
+            else:
+                media_session = Session(
+                    client,
+                    file_id.dc_id,
+                    await client.storage.auth_key(),
+                    test_mode,
+                    is_media=True,
                 )
-                LOGGER.info(f"Authorization imported successfully for DC {file_id.dc_id}")
-                return
+                await media_session.start()
+                LOGGER.debug(f"Using existing auth key for DC {file_id.dc_id}")
 
-            except AuthBytesInvalid:
-                LOGGER.warning(f"Attempt {attempt + 1}: Invalid auth bytes for DC {file_id.dc_id}")
-                if attempt == 2:
-                    await asyncio.sleep(2)
-                    await session.stop()
-                    raise
+            client.media_sessions[file_id.dc_id] = media_session
+        else:
+            LOGGER.debug(f"Using cached media session for DC {file_id.dc_id}")
 
-            except FloodWait as e:
-                LOGGER.error(f"FloodWait error during auth attempt: {e}")
-                await asyncio.sleep(e.value + 1)
+        return media_session
 
-            except RPCError as e:
-                LOGGER.error(f"RPC error during auth attempt: {e}")
-                await asyncio.sleep(1)
-
-    def get_location(
-        self, file_id: FileId
-    ) -> Union[
+    @staticmethod
+    async def get_location(file_id: FileId) -> Union[
         raw.types.InputPhotoFileLocation,
         raw.types.InputDocumentFileLocation,
         raw.types.InputPeerPhotoFileLocation,
@@ -212,55 +181,40 @@ class ByteStreamer:
         file_type = file_id.file_type
 
         if file_type == FileType.CHAT_PHOTO:
-            peer = self._create_chat_peer(file_id)
-            return raw.types.InputPeerPhotoFileLocation(
+            if file_id.chat_id > 0:
+                peer = raw.types.InputPeerUser(
+                    user_id=file_id.chat_id, access_hash=file_id.chat_access_hash
+                )
+            else:
+                if file_id.chat_access_hash == 0:
+                    peer = raw.types.InputPeerChat(chat_id=-file_id.chat_id)
+                else:
+                    peer = raw.types.InputPeerChannel(
+                        channel_id=utils.get_channel_id(file_id.chat_id),
+                        access_hash=file_id.chat_access_hash,
+                    )
+
+            location = raw.types.InputPeerPhotoFileLocation(
                 peer=peer,
                 volume_id=file_id.volume_id,
                 local_id=file_id.local_id,
                 big=file_id.thumbnail_source == ThumbnailSource.CHAT_PHOTO_BIG,
             )
-
-        if file_type == FileType.PHOTO:
-            return raw.types.InputPhotoFileLocation(
+        elif file_type == FileType.PHOTO:
+            location = raw.types.InputPhotoFileLocation(
                 id=file_id.media_id,
                 access_hash=file_id.access_hash,
                 file_reference=file_id.file_reference,
                 thumb_size=file_id.thumbnail_size,
             )
-
-        return raw.types.InputDocumentFileLocation(
-            id=file_id.media_id,
-            access_hash=file_id.access_hash,
-            file_reference=file_id.file_reference,
-            thumb_size=file_id.thumbnail_size,
-        )
-
-    def _create_chat_peer(
-        self, file_id: FileId
-    ) -> Union[
-        raw.types.InputPeerUser, raw.types.InputPeerChat, raw.types.InputPeerChannel
-    ]:
-        """
-        Create a chat peer for a given chat ID.
-
-        Args:
-            file_id (FileId): The file properties object.
-
-        Returns:
-            Union[InputPeerUser, InputPeerChat, InputPeerChannel]: The chat peer object.
-        """
-        if file_id.chat_id > 0:
-            return raw.types.InputPeerUser(
-                user_id=file_id.chat_id, access_hash=file_id.chat_access_hash
+        else:
+            location = raw.types.InputDocumentFileLocation(
+                id=file_id.media_id,
+                access_hash=file_id.access_hash,
+                file_reference=file_id.file_reference,
+                thumb_size=file_id.thumbnail_size,
             )
-
-        if file_id.chat_access_hash == 0:
-            return raw.types.InputPeerChat(chat_id=-file_id.chat_id)
-
-        return raw.types.InputPeerChannel(
-            channel_id=file_id.chat_id & 0x7FFFFFFFFFFFFFFF,
-            access_hash=file_id.chat_access_hash,
-        )
+        return location
 
     async def yield_file(
         self,
@@ -287,12 +241,13 @@ class ByteStreamer:
         Yields:
             bytes: The next chunk of data.
         """
+        client = self.client
         work_loads[index] += 1
         LOGGER.debug(f"Starting to yield file with client index {index}.")
 
         media_session = await self.generate_media_session(file_id)
         current_part = 1
-        location = self.get_location(file_id)
+        location = await self.get_location(file_id)
 
         try:
             while current_part <= part_count:
@@ -323,18 +278,17 @@ class ByteStreamer:
                     current_part += 1
                     offset += chunk_size
 
+                    if current_part > part_count:
+                        break
+
                 except FloodWait as e:
                     LOGGER.warning(f"FloodWait: Sleeping for {e.value} seconds.")
                     await asyncio.sleep(e.value + 1)
-
                 except (RPCError, TimeoutError) as e:
                     LOGGER.error(f"Error while fetching file part: {e}")
-                    raise web.HTTPInternalServerError(text="Failed to fetch file part.")
-
+                    raise
         finally:
-            LOGGER.debug(
-                f"Finished yielding file, processed {current_part - 1} parts."
-            )
+            LOGGER.debug(f"Finished yielding file, processed {current_part - 1} parts.")
             work_loads[index] -= 1
 
     async def clean_cache(self) -> None:
