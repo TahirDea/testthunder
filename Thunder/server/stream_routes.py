@@ -70,7 +70,7 @@ def exception_handler(func):
             ServerDisconnectedError,
             asyncio.CancelledError,
         ):
-            logging.error("Client disconnected unexpectedly.")
+            logging.warning("Client disconnected unexpectedly.")
             # 499 is a non-standard status code used by some servers to indicate client closed request
             return web.Response(status=499, text="Client Closed Request")
         except web.HTTPException:
@@ -182,7 +182,7 @@ async def stream_handler_watch(request: web.Request):
     try:
         page_content = await render_page(message_id, secure_hash)
     except Exception as e:
-        logging.error(f"Error rendering page for message ID {message_id}: {e}")
+        logging.warning(f"Error rendering page for message ID {message_id}: {e}")
         raise web.HTTPInternalServerError(text="Failed to render media page.")
 
     return web.Response(text=page_content, content_type='text/html')
@@ -257,7 +257,7 @@ async def media_streamer(
         logging.warning(f"File not found for message ID {message_id}: {e}")
         raise web.HTTPNotFound(text="Requested file not found.")
     except Exception as e:
-        logging.error(f"Error retrieving file properties for message ID {message_id}: {e}")
+        logging.warning(f"Error retrieving file properties for message ID {message_id}: {e}")
         raise web.HTTPInternalServerError(text="Failed to retrieve file properties.")
 
     # Validate the secure hash
@@ -339,7 +339,7 @@ async def media_streamer(
             file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
         )
     except Exception as e:
-        logging.error(f"Error initiating file stream for message ID {message_id}: {e}")
+        logging.warning(f"Error initiating file stream for message ID {message_id}: {e}")
         raise web.HTTPInternalServerError(text="Failed to initiate file stream.")
 
     # Determine the type of generator and wrap if necessary
