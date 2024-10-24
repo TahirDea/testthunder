@@ -1,8 +1,10 @@
 import logging
 import time
+from typing import Tuple
 from urllib.parse import quote_plus
 
 from pyrogram import Client, filters
+from pyrogram.errors import RPCError
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from Thunder.bot import StreamBot
@@ -20,27 +22,42 @@ logger = logging.getLogger(__name__)
 # Initialize the database
 db = database.Database(Var.DATABASE_URL, Var.name)
 
+# Constants for messages
+INVALID_ARG_MSG = (
+    "❌ Invalid argument. Please provide a valid Telegram User ID or username "
+    "(e.g., /dc 123456789 or /dc @username)."
+)
+FAILED_USER_INFO_MSG = (
+    "❌ Failed to retrieve user information. Please ensure the User ID/username "
+    "is correct and the user has interacted with the bot or is accessible."
+)
+REPLY_DOES_NOT_CONTAIN_USER_MSG = "❌ The replied message does not contain a user."
+MEDIA_DC_NOT_FOUND_MSG = "❌ Couldn't retrieve DC information from the file."
+
 async def notify_owner(bot: Client, text: str):
-    """Send a notification message to the owner and log to BIN_CHANNEL."""
+    """Send a notification message to the BIN_CHANNEL."""
     try:
-        if hasattr(Var, 'OWNER_ID'):
-            await bot.send_message(chat_id=Var.OWNER_ID, text=text)
-        await bot.send_message(chat_id=Var.BIN_CHANNEL, text=text)
+        if hasattr(Var, 'BIN_CHANNEL') and isinstance(Var.BIN_CHANNEL, int) and Var.BIN_CHANNEL != 0:
+            await bot.send_message(chat_id=Var.BIN_CHANNEL, text=text)
     except Exception as e:
-        logger.error(f"Failed to send message to owner or BIN_CHANNEL: {e}", exc_info=True)
+        logger.error(f"Failed to send message to BIN_CHANNEL: {e}", exc_info=True)
 
 async def handle_user_error(message: Message, error_msg: str):
     """Send a standardized error message to the user."""
     try:
-        await message.reply_text(f"❌ {error_msg}\nPlease try again or contact support.", quote=True)
+        await message.reply_text(f"{error_msg}", quote=True)
     except Exception as e:
         logger.error(f"Failed to send error message to user: {e}", exc_info=True)
 
 async def log_new_user(bot: Client, user_id: int, first_name: str):
-    """Log new user and send notification if user is new."""
+    """
+    Log a new user and send a notification to the BIN_CHANNEL if the user is new.
+    Does not inform the owner in direct messages.
+    """
     try:
         if not await db.is_user_exist(user_id):
             await db.add_user(user_id)
+            # Notify in BIN_CHANNEL without sending a DM to the owner
             await bot.send_message(
                 Var.BIN_CHANNEL,
                 f"👋 **New User Alert!**\n\n"
@@ -51,9 +68,10 @@ async def log_new_user(bot: Client, user_id: int, first_name: str):
     except Exception as e:
         error_text = f"Error logging new user {user_id}: {e}"
         logger.error(error_text, exc_info=True)
-        await notify_owner(bot, error_text)
+        # Do not notify the owner in DM about the error
+        # You can choose to log the error or send it to BIN_CHANNEL if desired
 
-async def generate_media_links(log_msg: Message) -> tuple:
+async def generate_media_links(log_msg: Message) -> Tuple[str, str]:
     """Generate stream and download links for media."""
     try:
         base_url = Var.URL.rstrip("/")
@@ -68,6 +86,17 @@ async def generate_media_links(log_msg: Message) -> tuple:
         logger.error(error_text, exc_info=True)
         await notify_owner(log_msg._client, error_text)
         raise
+
+async def generate_dc_text(user) -> str:
+    """Generate formatted DC information text for a user."""
+    dc_id = user.dc_id if user.dc_id is not None else "Unknown"
+    return (
+        f"🌐 **Data Center Information**\n\n"
+        f"👤 **User:** [{user.first_name or 'User'}](tg://user?id={user.id})\n"
+        f"🆔 **User ID:** `{user.id}`\n"
+        f"🌐 **Data Center:** `{dc_id}`\n\n"
+        "This is the data center where the specified user is hosted."
+    )
 
 @StreamBot.on_message(filters.command("start") & filters.private)
 async def start_command(bot: Client, message: Message):
@@ -84,7 +113,7 @@ async def start_command(bot: Client, message: Message):
                 "🔹 **Available Commands:**\n"
                 "/help - How to use the bot\n"
                 "/about - About the bot\n"
-                "/ping - Check bot's response time\n\n"
+                "/link - To use in groups\n\n"
                 "Enjoy using the bot, and feel free to share your feedback!"
             )
             await message.reply_text(text=welcome_text)
@@ -107,8 +136,10 @@ async def start_command(bot: Client, message: Message):
                     ),
                     disable_web_page_preview=True,
                     reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
-                         InlineKeyboardButton("📥 Download", url=online_link)]
+                        [
+                            InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
+                            InlineKeyboardButton("📥 Download", url=online_link)
+                        ]
                     ])
                 )
             else:
@@ -131,7 +162,7 @@ async def help_command(bot: Client, message: Message):
             "🔹 **In Channels:** Add me to your channel, and I'll automatically generate links for new posts.\n\n"
             "🔸 **Additional Commands:**\n"
             "/about - Learn more about the bot\n"
-            "/ping - Check the bot's response time\n\n"
+            "/link - To use in groups\n\n"
             "If you have any questions or need support, feel free to reach out!"
         )
         await message.reply_text(text=help_text, disable_web_page_preview=True)
@@ -153,8 +184,6 @@ async def about_command(bot: Client, message: Message):
             " - Generate direct links for files\n"
             " - Support for all file types\n"
             " - Easy to use in private chats and groups\n\n"
-            "👨‍💻 **Developer:** [Your Name](https://t.me/YourUsername)\n"
-            "📢 **Updates Channel:** [Your Channel](https://t.me/YourChannel)\n\n"
             "Feel free to reach out if you have any questions or suggestions!"
         )
         await message.reply_text(text=about_text, disable_web_page_preview=True)
@@ -164,20 +193,115 @@ async def about_command(bot: Client, message: Message):
         await handle_user_error(message, "An unexpected error occurred.")
         await notify_owner(bot, error_text)
 
-@StreamBot.on_message(filters.command("dc") & filters.private)
+@StreamBot.on_message(filters.command("dc") & (filters.private | filters.group | filters.supergroup))
 async def dc_command(bot: Client, message: Message):
-    """Handle /dc command."""
+    """Handle /dc command with multiple functionalities."""
     try:
-        dc_text = (
-            f"🌐 **Your Telegram Data Center:** `{message.from_user.dc_id}`\n\n"
-            "This is the data center where your Telegram account is hosted."
-        )
-        await message.reply_text(dc_text, disable_web_page_preview=True, quote=True)
+        # Log the user
+        await log_new_user(bot, message.from_user.id, message.from_user.first_name)
+
+        # Extract arguments
+        args = message.text.strip().split(maxsplit=1)
+
+        if len(args) > 1:
+            # Argument provided (username or TGID)
+            query = args[1].strip()
+
+            if query.startswith('@'):
+                # Handle username
+                username = query[1:]
+                try:
+                    user = await bot.get_users(username)
+                    dc_text = await generate_dc_text(user)
+
+                    # Inline keyboard
+                    dc_keyboard = InlineKeyboardMarkup([
+                        [
+                            InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
+                            InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                        ]
+                    ])
+
+                    await message.reply_text(dc_text, disable_web_page_preview=True, reply_markup=dc_keyboard, quote=True)
+                except Exception as e:
+                    await handle_user_error(message, FAILED_USER_INFO_MSG)
+                    logger.error(f"Failed to get user info for username {username}: {e}", exc_info=True)
+                    # Do not notify the owner in DM
+                return
+
+            elif query.isdigit():
+                # Handle TGID (Telegram User ID)
+                user_id_arg = int(query)
+                try:
+                    user = await bot.get_users(user_id_arg)
+                    dc_text = await generate_dc_text(user)
+
+                    # Inline keyboard
+                    dc_keyboard = InlineKeyboardMarkup([
+                        [
+                            InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
+                            InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                        ]
+                    ])
+
+                    await message.reply_text(dc_text, disable_web_page_preview=True, reply_markup=dc_keyboard, quote=True)
+                except Exception as e:
+                    await handle_user_error(message, FAILED_USER_INFO_MSG)
+                    logger.error(f"Failed to get user info for TGID {user_id_arg}: {e}", exc_info=True)
+                    # Do not notify the owner in DM
+                return
+            else:
+                await handle_user_error(message, INVALID_ARG_MSG)
+                return
+
+        # Check if the command is a reply to a message
+        if message.reply_to_message:
+            replied_msg = message.reply_to_message
+            # Check if the replied message has a user (sender)
+            if replied_msg.from_user:
+                user = replied_msg.from_user
+                dc_text = await generate_dc_text(user)
+
+                # Inline keyboard
+                dc_keyboard = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
+                        InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                    ]
+                ])
+
+                await message.reply_text(dc_text, disable_web_page_preview=True, reply_markup=dc_keyboard, quote=True)
+            elif replied_msg.media:
+                # If replying to media, extract its `dc_id`
+                media_dc_id = getattr(replied_msg, 'media', None) and getattr(replied_msg, 'dc_id', None)
+                if media_dc_id:
+                    dc_text = f"🌐 **The media file's Data Center is:** `{media_dc_id}`"
+                    await message.reply_text(dc_text, quote=True)
+                else:
+                    await handle_user_error(message, MEDIA_DC_NOT_FOUND_MSG)
+            else:
+                await handle_user_error(message, REPLY_DOES_NOT_CONTAIN_USER_MSG)
+            return
+
+        # Default case: No arguments and not a reply, return the DC of the command issuer
+        user = message.from_user
+        dc_text = await generate_dc_text(user)
+
+        # Inline keyboard
+        dc_keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
+                InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+            ]
+        ])
+
+        await message.reply_text(dc_text, disable_web_page_preview=True, reply_markup=dc_keyboard, quote=True)
+
     except Exception as e:
         error_text = f"Error in dc_command: {e}"
         logger.error(error_text, exc_info=True)
         await handle_user_error(message, "An unexpected error occurred.")
-        await notify_owner(bot, error_text)
+        # Do not notify the owner in DM
 
 @StreamBot.on_message(filters.command("ping") & filters.private)
 async def ping_command(bot: Client, message: Message):
