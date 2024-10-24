@@ -193,7 +193,7 @@ async def about_command(bot: Client, message: Message):
         await handle_user_error(message, "An unexpected error occurred.")
         await notify_owner(bot, error_text)
 
-@StreamBot.on_message(filters.command("dc") & (filters.private | filters.group | filters.supergroup))
+@StreamBot.on_message(filters.command("dc") & (filters.private | filters.group))
 async def dc_command(bot: Client, message: Message):
     """Handle /dc command with multiple functionalities."""
     try:
