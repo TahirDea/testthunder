@@ -36,7 +36,11 @@ async def handle_flood_wait(e: FloodWait) -> None:
 async def notify_owner(client: Client, text: str):
     """Send a notification message to the owner and log to BIN_CHANNEL."""
     try:
-        await client.send_message(chat_id=Var.OWNER_ID, text=text)
+        if isinstance(Var.OWNER_ID, (list, tuple)):
+            for owner_id in Var.OWNER_ID:
+                await client.send_message(chat_id=owner_id, text=text)
+        else:
+            await client.send_message(chat_id=Var.OWNER_ID, text=text)
         await client.send_message(chat_id=Var.BIN_CHANNEL, text=text)
     except Exception as e:
         logger.error(f"Failed to send message to owner or BIN_CHANNEL: {e}", exc_info=True)
@@ -47,6 +51,28 @@ async def handle_user_error(message: Message, error_msg: str):
         await message.reply_text(f"❌ {error_msg}\nPlease try again or contact support.", quote=True)
     except Exception as e:
         logger.error(f"Failed to send error message to user: {e}", exc_info=True)
+
+def get_file_unique_id(media_message: Message) -> str:
+    """Extract file_unique_id from the media message."""
+    if media_message.document:
+        return media_message.document.file_unique_id
+    elif media_message.video:
+        return media_message.video.file_unique_id
+    elif media_message.audio:
+        return media_message.audio.file_unique_id
+    elif media_message.photo:
+        # Photo size is a list; get the unique_id of the largest size
+        return media_message.photo.file_unique_id
+    elif media_message.animation:
+        return media_message.animation.file_unique_id
+    elif media_message.voice:
+        return media_message.voice.file_unique_id
+    elif media_message.video_note:
+        return media_message.video_note.file_unique_id
+    elif media_message.sticker:
+        return media_message.sticker.file_unique_id
+    else:
+        return None
 
 async def forward_media(media_message: Message) -> Message:
     """Forward the media message to the BIN channel."""
@@ -188,7 +214,7 @@ async def link_handler(client: Client, message: Message):
 
     await process_media_message(client, message, reply_msg)
 
-@StreamBot.on_message(filters.private & filters.incoming & (filters.document | filters.video | filters.photo), group=4)
+@StreamBot.on_message(filters.private & filters.incoming & (filters.document | filters.video | filters.photo | filters.audio | filters.voice | filters.animation | filters.video_note), group=4)
 async def private_receive_handler(client: Client, message: Message):
     """Handle direct file uploads in private chat."""
     await process_media_message(client, message, message)
@@ -197,7 +223,12 @@ async def process_media_message(client: Client, command_message: Message, media_
     """Process the media message and generate streaming and download links."""
     try:
         # Generate a unique cache key based on file_unique_id
-        cache_key = media_message.file_unique_id
+        cache_key = get_file_unique_id(media_message)
+
+        # If cache_key is None, cannot proceed
+        if cache_key is None:
+            await command_message.reply_text("⚠️ Could not extract file identifier from the media.")
+            return
 
         # Check if links are already cached and not expired
         cached_data = CACHE.get(cache_key)
@@ -246,7 +277,7 @@ async def process_media_message(client: Client, command_message: Message, media_
         # Notify the owner about the critical error
         await notify_owner(client, f"⚠️ Critical error occurred:\n{e}")
 
-@StreamBot.on_message(filters.channel & filters.incoming & (filters.document | filters.video | filters.photo) & ~filters.forwarded, group=-1)
+@StreamBot.on_message(filters.channel & filters.incoming & (filters.document | filters.video | filters.photo | filters.audio | filters.voice | filters.animation | filters.video_note) & ~filters.forwarded, group=-1)
 async def channel_receive_handler(client: Client, broadcast: Message):
     """Handle media shared in a channel."""
     try:
