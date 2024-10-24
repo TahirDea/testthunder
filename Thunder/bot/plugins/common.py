@@ -113,7 +113,7 @@ async def start_command(bot: Client, message: Message):
                 "🔹 **Available Commands:**\n"
                 "/help - How to use the bot\n"
                 "/about - About the bot\n"
-                "/link - To use in groups\n\n"
+                "/ping - Check bot's response time\n\n"
                 "Enjoy using the bot, and feel free to share your feedback!"
             )
             await message.reply_text(text=welcome_text)
@@ -162,7 +162,7 @@ async def help_command(bot: Client, message: Message):
             "🔹 **In Channels:** Add me to your channel, and I'll automatically generate links for new posts.\n\n"
             "🔸 **Additional Commands:**\n"
             "/about - Learn more about the bot\n"
-            "/link - To use in groups\n\n"
+            "/ping - Check the bot's response time\n\n"
             "If you have any questions or need support, feel free to reach out!"
         )
         await message.reply_text(text=help_text, disable_web_page_preview=True)
@@ -193,7 +193,7 @@ async def about_command(bot: Client, message: Message):
         await handle_user_error(message, "An unexpected error occurred.")
         await notify_owner(bot, error_text)
 
-@StreamBot.on_message(filters.command("dc") & (filters.private | filters.group))
+@StreamBot.on_message(filters.command("dc"))
 async def dc_command(bot: Client, message: Message):
     """Handle /dc command with multiple functionalities."""
     try:
@@ -217,8 +217,7 @@ async def dc_command(bot: Client, message: Message):
                     # Inline keyboard
                     dc_keyboard = InlineKeyboardMarkup([
                         [
-                            InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
-                            InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                            InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}")
                         ]
                     ])
 
@@ -226,7 +225,6 @@ async def dc_command(bot: Client, message: Message):
                 except Exception as e:
                     await handle_user_error(message, FAILED_USER_INFO_MSG)
                     logger.error(f"Failed to get user info for username {username}: {e}", exc_info=True)
-                    # Do not notify the owner in DM
                 return
 
             elif query.isdigit():
@@ -239,8 +237,7 @@ async def dc_command(bot: Client, message: Message):
                     # Inline keyboard
                     dc_keyboard = InlineKeyboardMarkup([
                         [
-                            InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
-                            InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                            InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}")
                         ]
                     ])
 
@@ -248,7 +245,6 @@ async def dc_command(bot: Client, message: Message):
                 except Exception as e:
                     await handle_user_error(message, FAILED_USER_INFO_MSG)
                     logger.error(f"Failed to get user info for TGID {user_id_arg}: {e}", exc_info=True)
-                    # Do not notify the owner in DM
                 return
             else:
                 await handle_user_error(message, INVALID_ARG_MSG)
@@ -257,28 +253,33 @@ async def dc_command(bot: Client, message: Message):
         # Check if the command is a reply to a message
         if message.reply_to_message:
             replied_msg = message.reply_to_message
-            # Check if the replied message has a user (sender)
-            if replied_msg.from_user:
+            # Check if the replied message has media
+            media = (
+                replied_msg.photo or
+                replied_msg.document or
+                replied_msg.video or
+                replied_msg.audio or
+                replied_msg.voice or
+                replied_msg.animation
+            )
+            if media:
+                # Get the file_id from the media
+                file_id = media.file_id
+                # Get the file info
+                file_info = await bot.get_file(file_id)
+                dc_id = file_info.dc_id
+                dc_text = f"🌐 **The media file's Data Center is:** `{dc_id}`"
+                await message.reply_text(dc_text, quote=True)
+            elif replied_msg.from_user:
                 user = replied_msg.from_user
                 dc_text = await generate_dc_text(user)
-
                 # Inline keyboard
                 dc_keyboard = InlineKeyboardMarkup([
                     [
-                        InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
-                        InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                        InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}")
                     ]
                 ])
-
                 await message.reply_text(dc_text, disable_web_page_preview=True, reply_markup=dc_keyboard, quote=True)
-            elif replied_msg.media:
-                # If replying to media, extract its `dc_id`
-                media_dc_id = getattr(replied_msg, 'media', None) and getattr(replied_msg, 'dc_id', None)
-                if media_dc_id:
-                    dc_text = f"🌐 **The media file's Data Center is:** `{media_dc_id}`"
-                    await message.reply_text(dc_text, quote=True)
-                else:
-                    await handle_user_error(message, MEDIA_DC_NOT_FOUND_MSG)
             else:
                 await handle_user_error(message, REPLY_DOES_NOT_CONTAIN_USER_MSG)
             return
@@ -290,8 +291,7 @@ async def dc_command(bot: Client, message: Message):
         # Inline keyboard
         dc_keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}"),
-                InlineKeyboardButton("🏠 Home", url="https://yourbothomepage.com")
+                InlineKeyboardButton("🔍 View Profile", url=f"tg://user?id={user.id}")
             ]
         ])
 
